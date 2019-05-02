@@ -14,7 +14,7 @@ Trabalho de Programação Concorrente de 2019.1
     - [ ] `void pizzeria_destroy()`
         - Libera quaisquer recursos e estruturas de dados inicializados por pizzeria_init().
         - Chamada pelafunção main() antes de sair.
-    - [ ] `void garcom_chamar()`
+    - [X] `void garcom_chamar()`
         - Chama um garçom, bloqueia até o garçom chegar.
         - Chamada pelo cliente líder.
     - [ ] `void fazer_pedido(pedido_t* pedido)`
