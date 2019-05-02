@@ -13,6 +13,9 @@ sem_t garcons_disponiveis;
 
     // Pizzaiolos
 
+// Integracao
+    // Smart Deck
+queue_t smart_deck;
 // ----------------------------------------------------
 
 // Funcoes
@@ -21,7 +24,9 @@ void garcom_chamar() {
     sem_wait(&garcons_disponiveis);
 }
 
-
+void fazer_pedido(pedido_t* pedido) {
+    queue_push_back(&smart_deck,(void*)pedido);
+}
 
 
 
