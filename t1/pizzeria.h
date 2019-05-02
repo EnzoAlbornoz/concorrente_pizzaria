@@ -21,6 +21,7 @@ typedef struct pizza_s {
     struct timespec ts; ///< IMPORTANTE! NÃO REMOVER
 
     /* você pode adicionar coisas aqui */
+    sem_t pizza_pronta;
 } pizza_t;
 
 void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,

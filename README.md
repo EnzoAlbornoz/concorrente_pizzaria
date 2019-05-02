@@ -17,7 +17,7 @@ Trabalho de Programação Concorrente de 2019.1
     - [X] `void garcom_chamar()`
         - Chama um garçom, bloqueia até o garçom chegar.
         - Chamada pelo cliente líder.
-    - [ ] `void fazer_pedido(pedido_t* pedido)`
+    - [X] `void fazer_pedido(pedido_t* pedido)`
       - Faz um pedido de pizza. O pedido aparece como uma smart ficha no smart deck. É proibido fazer um novo pedido antes de receber a pizza.
       - Chamado pelo cliente líder.
     - [ ] `void garcom_tchau(int tam_grupo)`
