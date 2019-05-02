@@ -26,10 +26,7 @@ sem_t espacos_forno;
 pthread_mutex_t pa_pizza;
     // Espaco na mesa
 pizza_t* espaco_mesa;
-sem_t sem_espaco_mesa;
-    // Pizzas
-int _pizzas_entregar;
-pthread_mutex_t mtx_pizzas_entregar;
+sem_t sem_espaco_mesa; // Semaforo de 1 - > Tipo mutex
 // ----------------------------------------------------
 
 // Funcoes
@@ -48,6 +45,7 @@ void garcom_func(void* args) {
     // Um dos garçons consegue vencer e pega uma pizza da mesa -> I.E Essa thread já é chamada dentro de uma exclusão
     garcom_entregar(espaco_mesa);
     sem_post(&sem_espaco_mesa);
+    sem_post(&garcons_disponiveis);
 }
     // Pizzaiolos
 
@@ -95,7 +93,6 @@ void pizza_assada(pizza_t* pizza) {
 
 void coloca_pizza_mesa(pizza_t* pizza) {
     sem_wait(&sem_espaco_mesa);
-    // TODO !!!!!!!!!!!!!!!!!!!!!!!!!!
     espaco_mesa = pizza;
 }
 
@@ -108,10 +105,6 @@ void pizzeria_close() {
 }
 
 void pizzeria_destroy() {
-}
-
-void pizza_assada(pizza_t* pizza) {
-
 }
 
 int pegar_mesas(int tam_grupo) {
