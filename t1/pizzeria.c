@@ -7,6 +7,28 @@
 #include <math.h>
 #include <pthread.h>
 
+// Infos
+    // Garçons
+sem_t garcons_disponiveis;
+
+    // Pizzaiolos
+
+// ----------------------------------------------------
+
+// Funcoes
+    // Garcons
+void garcom_chamar() {
+    sem_wait(&garcons_disponiveis);
+}
+
+
+
+
+
+
+
+
+
 
 void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
                    int n_garcons, int tam_deck, int n_grupos) {
@@ -20,6 +42,7 @@ void pizzeria_destroy() {
 }
 
 void pizza_assada(pizza_t* pizza) {
+
 }
 
 int pegar_mesas(int tam_grupo) {
