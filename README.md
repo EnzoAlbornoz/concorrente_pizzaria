@@ -17,7 +17,7 @@ Trabalho de Programação Concorrente de 2019.1
     - [X] `void garcom_chamar()`
         - Chama um garçom, bloqueia até o garçom chegar.
         - Chamada pelo cliente líder.
-    - [ ] `void fazer_pedido(pedido_t* pedido)`
+    - [X] `void fazer_pedido(pedido_t* pedido)`
       - Faz um pedido de pizza. O pedido aparece como uma smart ficha no smart deck. É proibido fazer um novo pedido antes de receber a pizza.
       - Chamado pelo cliente líder.
     - [ ] `void garcom_tchau(int tam_grupo)`
@@ -26,7 +26,7 @@ Trabalho de Programação Concorrente de 2019.1
     - [ ] `int pizza_pegar_fatia(pizza_t* pizza)`
       - Pega uma fatia da pizza. Retorna 0 (sem erro) se conseguiu pegar a fatia, ou -1 (erro) se a pizza já acabou.
       - Chamada pelas threads representando clientes.
-    - [ ] `void pizza_assada(pizza_t* pizza)`
+    - [X] `void pizza_assada(pizza_t* pizza)`
       - Indica que a pizza dada como argumento (previamente colocada no forno) está pronta.
       - Chamada pelo nariz do pizzaiolo.
         - A thread que chamará essa função será uma thread específica para esse fim, criada nas profundezas do helper.c.
