@@ -142,9 +142,12 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
 }
 
 void pizzeria_close() {
+    // Fecha as portas da pizzaria com portas de ferro e toras
+    pizzaria_is_open = 0;
 }
 
 void pizzeria_destroy() {
+    
 }
 
 int pegar_mesas(int tam_grupo) {
