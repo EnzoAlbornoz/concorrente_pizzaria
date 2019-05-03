@@ -35,3 +35,8 @@ Trabalho de Programação Concorrente de 2019.1
         - Deve retornar zero se não houve erro, ou -1 se a pizzaria já foi fechada com pizzeria_fechar().
         - A implementação não precisa considerar o layout das mesas.
         - Chamada pelo cliente líder do grupo. 
+  - Comportamentos
+    - [X] Pizzaiolos
+    - [ ] Garoçons
+        - [X] Entregar pizzas
+        - [X] Fazer pedidos

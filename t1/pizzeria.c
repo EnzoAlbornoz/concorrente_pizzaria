@@ -12,7 +12,6 @@
 int pizzaria_is_open;
     // Garçons
 sem_t garcons_disponiveis;
-
     // Pizzaiolos
 int _pizzaiolos_n;
 pthread_t* pizzaiolos;
@@ -21,12 +20,20 @@ pthread_t* pizzaiolos;
 queue_t smart_deck;
 sem_t sem_smart_deck;
     // Forno 
-sem_t espacos_forno;
+sem_t sem_espacos_forno;
     // Pa de pizza
-pthread_mutex_t pa_pizza;
+pthread_mutex_t mtx_pa_pizza;
     // Espaco na mesa
 pizza_t* espaco_mesa;
 sem_t sem_espaco_mesa; // Semaforo de 1 - > Tipo mutex
+    // Mesas
+int _mesas_vagas_n;
+int _total_mesas_n;
+pthread_mutex_t mtx_mesas;
+    // Grupos
+int _grupos_n;
+int _pessoas_n;
+pthread_mutex_t mtx_grupos;
 // ----------------------------------------------------
 
 // Funcoes
@@ -61,21 +68,25 @@ void pizzaiolo_func(void* args) {
         pedido_t* pedido = (pedido_t*) queue_wait(&smart_deck);
         pizza_t* pizza = pizzaiolo_montar_pizza(pedido);
         sem_init(&(pizza->pizza_pronta),0,0);
+        // Olha incessantemente para o forno buscando espaco para enfiar a pizza
+        sem_wait(&sem_espacos_forno);
         // Sai na porrada com os outros pizzaiolos para pegar a pá de pizza
-        pthread_mutex_lock(&pa_pizza);
-        // Apos sair com algumas costelas quebradas ele tem a pá de pizza
+        pthread_mutex_lock(&mtx_pa_pizza);
+        // Apos sair com algumas costelas quebradas ele tem a pá de pizza e usa para colocar a pizza no forno
         pizzaiolo_colocar_forno(pizza);
         // Joga a pá de pizza na cabeça do outro pizzaiolo e deixa de usá-la
-        pthread_mutex_unlock(&pa_pizza);
+        pthread_mutex_unlock(&mtx_pa_pizza);
         // Fica cheirando a pizza ficar pronta
         sem_wait(&(pizza->pizza_pronta));
         // Com seu olhar ameacador cai na porrada novamente para pegar a pá de pizza
-        pthread_mutex_lock(&pa_pizza);
+        pthread_mutex_lock(&mtx_pa_pizza);
         // Com ferimentos graves consegue a pá de pizza
+        // E a utiliza para tirar a pizza dos profundos fogos do forno
+        sem_post(&sem_espacos_forno);
         // Vai colocar a pizza na mesa
         pizzaiolo_colocar_mesa(pizza);
         // Ele arremessa novamente sua pá de pizza para o seu local de descanso
-        pthread_mutex_unlock(&pa_pizza);
+        pthread_mutex_unlock(&mtx_pa_pizza);
         // Apressadamente ele soca o sino da pizzaria para indicar que há uma pizza pronta
         garcom_chamar();
         // Confere a cara do garçom e manda ele entregar a pizza
@@ -98,13 +109,45 @@ void coloca_pizza_mesa(pizza_t* pizza) {
 
 void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
                    int n_garcons, int tam_deck, int n_grupos) {
-
+    // Inicializa a pizzaria
+        // Smart Deck
+    queue_init(&smart_deck,tam_deck);
+    sem_init(&sem_smart_deck,0,0);
+        // Garcons
+    sem_init(&garcons_disponiveis,0,n_garcons);
+        // Cozinha
+            // Forno
+    sem_init(&sem_espacos_forno,0,tam_forno);
+            // Pa de Pizza
+    pthread_mutex_init(&mtx_pa_pizza,NULL);
+            // Mesa das Pizzas
+    sem_init(&sem_espaco_mesa,0,1);
+        // Grupos
+            // Mesas
+    _total_mesas_n = _total_mesas_n;
+    _mesas_vagas_n = _total_mesas_n;
+    pthread_mutex_init(&mtx_mesas,NULL);
+            // Grupos/Pessoas
+    _grupos_n = 0;
+    _pessoas_n = 0;
+    pthread_mutex_init(&mtx_grupos,NULL);
+        // Outros
+    pizzaria_is_open = 1;
+        // Pizziolos
+    _pizzaiolos_n = n_pizzaiolos;
+    pizzaiolos = (pthread_t*) malloc(sizeof(pthread_t) * _pizzaiolos_n);
+    for (int i = 0; i < n_pizzaiolos; ++i) {
+        pthread_create(&pizzaiolos[i],NULL,pizzaiolo_func,(void*)NULL);
+    }
 }
 
 void pizzeria_close() {
+    // Fecha as portas da pizzaria com portas de ferro e toras
+    pizzaria_is_open = 0;
 }
 
 void pizzeria_destroy() {
+    
 }
 
 int pegar_mesas(int tam_grupo) {
