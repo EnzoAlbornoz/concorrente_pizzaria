@@ -55,6 +55,7 @@ void fazer_pedido(pedido_t* pedido) {
 void* garcom_func(void* args) {
     // Garçons vêm se degladiando com pegadores de pizza para poder vir pegar uma pizza
     // Um dos garçons consegue vencer e pega uma pizza da mesa -> I.E Essa thread já é chamada dentro de uma exclusão
+    sem_init(&(espaco_mesa->mtx_pegador_pizza),0,espaco_mesa->fatias);
     garcom_entregar(espaco_mesa);
     sem_destroy(&(espaco_mesa->pizza_pronta));
     sem_post(&sem_espaco_mesa);
