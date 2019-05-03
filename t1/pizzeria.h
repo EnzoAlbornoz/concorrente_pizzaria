@@ -22,6 +22,7 @@ typedef struct pizza_s {
 
     /* você pode adicionar coisas aqui */
     sem_t pizza_pronta;
+    pthread_mutex_t mtx_pegador_pizza;
 } pizza_t;
 
 void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,

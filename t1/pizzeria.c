@@ -7,6 +7,11 @@
 #include <math.h>
 #include <pthread.h>
 
+// Declaracao de funcoes implementadas que não aparecem no 
+void* garcom_func(void* args);
+void pizzaiolo_colocar_mesa(pizza_t* pizza);
+void pizzaiolo_func(void* args);
+
 // Infos
     // Pizzaria
 int pizzaria_is_open;
@@ -47,14 +52,20 @@ void fazer_pedido(pedido_t* pedido) {
     sem_post(&sem_smart_deck);
 }
 
-void garcom_func(void* args) {
+void* garcom_func(void* args) {
     // Garçons vêm se degladiando com pegadores de pizza para poder vir pegar uma pizza
     // Um dos garçons consegue vencer e pega uma pizza da mesa -> I.E Essa thread já é chamada dentro de uma exclusão
+    sem_init(&(espaco_mesa->mtx_pegador_pizza),0,espaco_mesa->fatias);
     garcom_entregar(espaco_mesa);
+    sem_destroy(&(espaco_mesa->pizza_pronta));
     sem_post(&sem_espaco_mesa);
     sem_post(&garcons_disponiveis);
 }
     // Pizzaiolos
+void pizzaiolo_colocar_mesa(pizza_t* pizza) {
+    sem_wait(&sem_espaco_mesa);
+    espaco_mesa = pizza;
+}
 
 void pizzaiolo_func(void* args) {
     // Prepara seus utencilios
@@ -102,10 +113,6 @@ void pizza_assada(pizza_t* pizza) {
     sem_post(&(pizza->pizza_pronta));
 }
 
-void coloca_pizza_mesa(pizza_t* pizza) {
-    sem_wait(&sem_espaco_mesa);
-    espaco_mesa = pizza;
-}
 
 void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
                    int n_garcons, int tam_deck, int n_grupos) {
@@ -147,7 +154,34 @@ void pizzeria_close() {
 }
 
 void pizzeria_destroy() {
-    
+    // Destroi a pizzaria com uma arma termo-nuclear
+    //-------------------------COZINHA-E-GAROCONS(REL_COZINHA)-----------------------------
+        // Smart Deck
+    queue_destroy(&smart_deck);
+    sem_destroy(&sem_smart_deck);
+        // Garcons
+    sem_destroy(&garcons_disponiveis);
+        // Cozinha
+            // Forno
+    sem_destroy(&sem_espacos_forno);
+            // Pa de Pizza
+    pthread_mutex_destroy(&mtx_pa_pizza);
+            // Mesa das Pizzas
+    sem_destroy(&sem_espaco_mesa);
+        // Grupos
+            // Mesas
+    pthread_mutex_destroy(&mtx_mesas);
+            // Grupos/Pessoas
+    pthread_mutex_destroy(&mtx_grupos);
+        // Outros
+        // Pizziolos
+    for (int i = 0; i < _pizzaiolos_n; ++i) {
+        int ret_val = 0;
+        int* ptr_ret_val = &ret_val;
+        pthread_join(pizzaiolos[i],&ptr_ret_val);
+    }
+    free(pizzaiolos);
+    //-------------------------COZINHA-E-GAROCONS(REL_COZINHA)-----------------------------
 }
 
 int pegar_mesas(int tam_grupo) {
