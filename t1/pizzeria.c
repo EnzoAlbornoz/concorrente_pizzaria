@@ -11,7 +11,7 @@
 void* garcom_func(void* args);
 void pizzaiolo_colocar_mesa(pizza_t* pizza);
 void* pizzaiolo_func(void* args);
-
+int sem_ret_getValue(sem_t* sem_ptr);
 // Infos
     // Pizzaria
 int pizzaria_is_open;
@@ -77,8 +77,7 @@ void* pizzaiolo_func(void* args) {
     // Prepara seus utencilios
     // Limpa o bigode
     // Espera os pedidos
-    int smart_deck_length = 0;
-    do{
+    do {
         printf("==Esperando Sem SmartDeck\n");
         sem_wait(&sem_smart_deck);
         // Recebeu o pedido e vai montá-lo
@@ -88,6 +87,7 @@ void* pizzaiolo_func(void* args) {
         sem_init(&(pizza->pizza_pronta),0,0);
         // Olha incessantemente para o forno buscando espaco para enfiar a pizza
         sem_wait(&sem_espacos_forno);
+        printf("COLOQUEI NO FORNO -> Existem %d pizzas lá\n",(2-sem_ret_getValue(&sem_espacos_forno)));
         // Sai na porrada com os outros pizzaiolos para pegar a pá de pizza
         pthread_mutex_lock(&mtx_pa_pizza);
         // Apos sair com algumas costelas quebradas ele tem a pá de pizza e usa para colocar a pizza no forno
@@ -99,8 +99,10 @@ void* pizzaiolo_func(void* args) {
         // Com seu olhar ameacador cai na porrada novamente para pegar a pá de pizza
         pthread_mutex_lock(&mtx_pa_pizza);
         // Com ferimentos graves consegue a pá de pizza
-        // E a utiliza para tirar a pizza dos profundos fogos do forno
+        // E a utiliza para tirar a pizza dos profundos fogos do inferno
+        pizzaiolo_retirar_forno(pizza);
         sem_post(&sem_espacos_forno);
+        printf("TIREI DO FORNO -> Existem %d pizzas lá\n",sem_ret_getValue(&sem_espacos_forno));
         // Vai colocar a pizza na mesa
         pizzaiolo_colocar_mesa(pizza);
         // Ele arremessa novamente sua pá de pizza para o seu local de descanso
@@ -113,7 +115,7 @@ void* pizzaiolo_func(void* args) {
         //pthread_setname_np(garcom, "garcom"); //Robson
         pthread_detach(garcom);
         // Ele pega uma semente dos deuses e a consome,recuperando suas energias e esperando o próximo pedido
-    } while(pizzaria_is_open || sem_getvalue(&sem_smart_deck,&smart_deck_length));
+    } while(pizzaria_is_open || sem_ret_getValue(&sem_smart_deck));
     return NULL; //Robson Alteraçã
 }
 
@@ -188,9 +190,10 @@ void pizzeria_destroy() {
         // Pizziolos
     printf("%d\n",_pizzaiolos_n);
     for (int i = 0; i < _pizzaiolos_n; ++i) {
-        //int ret_val = 0;
-        //int* ptr_ret_val = &ret_val;
-        pthread_join(pizzaiolos[i],NULL);//Robson
+        int ret_val = 0;
+        void* ptr_ret_val = (void*)&ret_val;
+        pthread_join(pizzaiolos[i],&ptr_ret_val);//Robson
+        printf("[PIZZAIOLO %d] Retornou com status %d\n",i,WEXITSTATUS(ret_val));
     }
     free(pizzaiolos);
     //-------------------------COZINHA-E-GAROCONS(REL_COZINHA)-----------------------------
@@ -271,4 +274,12 @@ int pizza_pegar_fatia(pizza_t* pizza) {
     }
     pthread_mutex_unlock(&pizza->mtx_pegador_pizza);
     return -1;
+}
+
+// Utils zone
+
+int sem_ret_getValue(sem_t* sem_ptr) {
+    int k = 0;
+    sem_getvalue(sem_ptr,&k);
+    return k;
 }
