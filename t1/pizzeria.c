@@ -10,7 +10,7 @@
 // Declaracao de funcoes implementadas que não aparecem no 
 void* garcom_func(void* args);
 void pizzaiolo_colocar_mesa(pizza_t* pizza);
-void pizzaiolo_func(void* args);
+void* pizzaiolo_func(void* args);
 
 // Infos
     // Pizzaria
@@ -33,12 +33,15 @@ pizza_t* espaco_mesa;
 sem_t sem_espaco_mesa; // Semaforo de 1 - > Tipo mutex
     // Mesas
 int _mesas_vagas_n;
-int _total_mesas_n;
+//int _total_mesas_n;
 pthread_mutex_t mtx_mesas;
     // Grupos
-int _grupos_n;
-int _pessoas_n;
-pthread_mutex_t mtx_grupos;
+//int _grupos_n;
+//int _pessoas_n;
+//pthread_mutex_t mtx_grupos;
+    //Recepção
+queue_t recepcao;
+
 // ----------------------------------------------------
 
 // Funcoes
@@ -55,11 +58,14 @@ void fazer_pedido(pedido_t* pedido) {
 void* garcom_func(void* args) {
     // Garçons vêm se degladiando com pegadores de pizza para poder vir pegar uma pizza
     // Um dos garçons consegue vencer e pega uma pizza da mesa -> I.E Essa thread já é chamada dentro de uma exclusão
-    sem_init(&(espaco_mesa->mtx_pegador_pizza),0,espaco_mesa->fatias);
+    //sem_init(&(espaco_mesa->mtx_pegador_pizza),0,espaco_mesa->fatias);
+    pthread_mutex_init(&espaco_mesa->mtx_pegador_pizza, NULL);
     garcom_entregar(espaco_mesa);
     sem_destroy(&(espaco_mesa->pizza_pronta));
     sem_post(&sem_espaco_mesa);
     sem_post(&garcons_disponiveis);
+
+    return NULL; //Robson
 }
     // Pizzaiolos
 void pizzaiolo_colocar_mesa(pizza_t* pizza) {
@@ -67,12 +73,13 @@ void pizzaiolo_colocar_mesa(pizza_t* pizza) {
     espaco_mesa = pizza;
 }
 
-void pizzaiolo_func(void* args) {
+void* pizzaiolo_func(void* args) {
     // Prepara seus utencilios
     // Limpa o bigode
     // Espera os pedidos
     int smart_deck_length = 0;
-    while(pizzaria_is_open || sem_getvalue(&sem_smart_deck,&smart_deck_length)) {
+    do{
+        printf("==Esperando Sem SmartDeck\n");
         sem_wait(&sem_smart_deck);
         // Recebeu o pedido e vai montá-lo
         // Retira o ticket de pedido
@@ -103,10 +110,11 @@ void pizzaiolo_func(void* args) {
         // Confere a cara do garçom e manda ele entregar a pizza
         pthread_t garcom;
         pthread_create(&garcom,NULL,garcom_func,NULL);
-        pthread_setname_np(garcom, "garcom");
+        //pthread_setname_np(garcom, "garcom"); //Robson
         pthread_detach(garcom);
         // Ele pega uma semente dos deuses e a consome,recuperando suas energias e esperando o próximo pedido
-    }
+    } while(pizzaria_is_open || sem_getvalue(&sem_smart_deck,&smart_deck_length));
+    return NULL; //Robson Alteraçã
 }
 
 void pizza_assada(pizza_t* pizza) {
@@ -131,21 +139,24 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
     sem_init(&sem_espaco_mesa,0,1);
         // Grupos
             // Mesas
-    _total_mesas_n = _total_mesas_n;
-    _mesas_vagas_n = _total_mesas_n;
+    //_total_mesas_n = n_mesas;
+    _mesas_vagas_n = n_mesas;
+    //printf("%d\n",_mesas_vagas_n);
     pthread_mutex_init(&mtx_mesas,NULL);
             // Grupos/Pessoas
-    _grupos_n = 0;
-    _pessoas_n = 0;
-    pthread_mutex_init(&mtx_grupos,NULL);
+    //_grupos_n = 0;
+    //_pessoas_n = 0;
+    //pthread_mutex_init(&mtx_grupos,NULL);
         // Outros
     pizzaria_is_open = 1;
         // Pizziolos
     _pizzaiolos_n = n_pizzaiolos;
-    pizzaiolos = (pthread_t*) malloc(sizeof(pthread_t) * _pizzaiolos_n);
+    pizzaiolos = malloc(sizeof(pthread_t) * _pizzaiolos_n); //Robson
     for (int i = 0; i < n_pizzaiolos; ++i) {
         pthread_create(&pizzaiolos[i],NULL,pizzaiolo_func,(void*)NULL);
     }
+        //Recepção
+    queue_init(&recepcao, (n_grupos - 1)); //Pq no minimo tera um grupo ocupando todas as mesas
 }
 
 void pizzeria_close() {
@@ -170,27 +181,94 @@ void pizzeria_destroy() {
     sem_destroy(&sem_espaco_mesa);
         // Grupos
             // Mesas
-    pthread_mutex_destroy(&mtx_mesas);
+    //pthread_mutex_destroy(&mtx_mesas);
             // Grupos/Pessoas
-    pthread_mutex_destroy(&mtx_grupos);
+    //pthread_mutex_destroy(&mtx_grupos);
         // Outros
         // Pizziolos
+    printf("%d\n",_pizzaiolos_n);
     for (int i = 0; i < _pizzaiolos_n; ++i) {
-        int ret_val = 0;
-        int* ptr_ret_val = &ret_val;
-        pthread_join(pizzaiolos[i],&ptr_ret_val);
+        //int ret_val = 0;
+        //int* ptr_ret_val = &ret_val;
+        pthread_join(pizzaiolos[i],NULL);//Robson
     }
     free(pizzaiolos);
     //-------------------------COZINHA-E-GAROCONS(REL_COZINHA)-----------------------------
+    
+
+    queue_destroy(&recepcao);
 }
 
 int pegar_mesas(int tam_grupo) {
-    return -1; //erro: não fui implementado (ainda)!
+    if (!pizzaria_is_open) {
+        return -1;
+    }
+
+    int quant_mesas = tam_grupo / 4;
+    quant_mesas += (tam_grupo % 4) ? 1 : 0;
+   
+    pthread_mutex_lock(&mtx_mesas);
+    if (quant_mesas <= _mesas_vagas_n) { //Podem brigar por uma mesa
+        printf("==Pegar Mesas %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
+        _mesas_vagas_n -= quant_mesas;
+    } else {
+        printf("==Recepcao %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
+        int* val = malloc(sizeof(int) * quant_mesas);
+        *(val) = quant_mesas;        
+        queue_push_back(&recepcao, val);
+        pthread_mutex_unlock(&mtx_mesas);
+        return -1;
+    }
+    pthread_mutex_unlock(&mtx_mesas);
+    return 0;
 }
 
 void garcom_tchau(int tam_grupo) {
+    int quant_mesas = tam_grupo / 4;
+    quant_mesas += (tam_grupo % 4) ? 1 : 0;
+
+    pthread_mutex_lock(&mtx_mesas);
+    _mesas_vagas_n += quant_mesas;
+    printf("==Tchau %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
+    if (!queue_empty(&recepcao)) {
+        int i = queue_size(&recepcao);
+        printf("Vendo Recepcao %d\n", i);
+        int quant_mesas_fila;
+        while (i > 0) {
+            void* aux = queue_wait(&recepcao);
+            quant_mesas_fila = *((int*) aux);
+            free(aux);
+            if (quant_mesas_fila <= _mesas_vagas_n) {
+                printf("Achou Grupo %d\n", queue_size(&recepcao));
+                _mesas_vagas_n -=quant_mesas_fila;
+                break;
+            }
+            int* val = malloc(sizeof(int) * quant_mesas_fila);
+            *(val) = quant_mesas_fila;        
+            queue_push_back(&recepcao, (void*)val); 
+            i--;
+        } 
+        //Voltando Fila ao normal
+        while(i > 1){
+            void* aux = queue_wait(&recepcao);
+            quant_mesas_fila = *((int*)aux);
+            free(aux);
+            int* val = malloc(sizeof(int) * quant_mesas_fila);
+            *(val) = quant_mesas_fila;        
+            queue_push_back(&recepcao, (void*)val); 
+        }
+    }
+    pthread_mutex_unlock(&mtx_mesas);
 }
 
 int pizza_pegar_fatia(pizza_t* pizza) {
-    return -1; // erro: não fui implementado (ainda)!
+    pthread_mutex_lock(&pizza->mtx_pegador_pizza);
+    if (pizza->fatias > 0) {
+        pizza->fatias--;
+        pthread_mutex_unlock(&pizza->mtx_pegador_pizza);
+        //TODO Destroy mutex pegador
+        return 0;
+    }
+    pthread_mutex_unlock(&pizza->mtx_pegador_pizza);
+    return -1;
 }

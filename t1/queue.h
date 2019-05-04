@@ -19,4 +19,5 @@ extern void  queue_push_back(queue_t* q, void* val);
 extern void* queue_wait(queue_t* q);
 extern  int  queue_empty(queue_t* q);
 
+extern  int  queue_size(queue_t* q);//Robson
 #endif /*__QUEUE_H__*/

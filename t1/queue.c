@@ -61,3 +61,12 @@ int queue_empty(queue_t* q) {
     pthread_mutex_unlock(&q->mtx);
     return empty;
 }
+
+
+//Robson
+int queue_size(queue_t* q){
+    pthread_mutex_lock(&q->mtx);
+    int i = q->size;
+    pthread_mutex_unlock(&q->mtx);
+    return i;
+}
