@@ -12,6 +12,7 @@ void* garcom_func(void* args);
 void pizzaiolo_colocar_mesa(pizza_t* pizza);
 void* pizzaiolo_func(void* args);
 int sem_ret_getValue(sem_t* sem_ptr);
+int atendimento_recepcao(int tam_grupo);
 // Infos
     // Pizzaria
 int pizzaria_is_open;
@@ -41,6 +42,7 @@ pthread_mutex_t mtx_mesas;
 //pthread_mutex_t mtx_grupos;
     //Recepção
 queue_t recepcao;
+pthread_mutex_t mtx_recepcao;
 
 // ----------------------------------------------------
 
@@ -78,7 +80,7 @@ void* pizzaiolo_func(void* args) {
     // Limpa o bigode
     // Espera os pedidos
     do {
-        printf("==Esperando Sem SmartDeck\n");
+        //printf("==Esperando Sem SmartDeck\n");
         sem_wait(&sem_smart_deck);
         // Recebeu o pedido e vai montá-lo
         // Retira o ticket de pedido
@@ -87,7 +89,7 @@ void* pizzaiolo_func(void* args) {
         sem_init(&(pizza->pizza_pronta),0,0);
         // Olha incessantemente para o forno buscando espaco para enfiar a pizza
         sem_wait(&sem_espacos_forno);
-        printf("COLOQUEI NO FORNO -> Existem %d pizzas lá\n",(2-sem_ret_getValue(&sem_espacos_forno)));
+        //printf("COLOQUEI NO FORNO -> Existem %d pizzas lá\n",(2-sem_ret_getValue(&sem_espacos_forno)));
         // Sai na porrada com os outros pizzaiolos para pegar a pá de pizza
         pthread_mutex_lock(&mtx_pa_pizza);
         // Apos sair com algumas costelas quebradas ele tem a pá de pizza e usa para colocar a pizza no forno
@@ -102,7 +104,7 @@ void* pizzaiolo_func(void* args) {
         // E a utiliza para tirar a pizza dos profundos fogos do inferno
         pizzaiolo_retirar_forno(pizza);
         sem_post(&sem_espacos_forno);
-        printf("TIREI DO FORNO -> Existem %d pizzas lá\n",sem_ret_getValue(&sem_espacos_forno));
+        //printf("TIREI DO FORNO -> Existem %d pizzas lá\n",(2-sem_ret_getValue(&sem_espacos_forno)));
         // Vai colocar a pizza na mesa
         pizzaiolo_colocar_mesa(pizza);
         // Ele arremessa novamente sua pá de pizza para o seu local de descanso
@@ -158,7 +160,8 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
         pthread_create(&pizzaiolos[i],NULL,pizzaiolo_func,(void*)NULL);
     }
         //Recepção
-    queue_init(&recepcao, (n_grupos - 1)); //Pq no minimo tera um grupo ocupando todas as mesas
+    queue_init(&recepcao, sizeof(int)); //Pq no minimo tera um grupo ocupando todas as mesas
+    pthread_mutex_init(&mtx_mesas,NULL);
 }
 
 void pizzeria_close() {
@@ -217,15 +220,21 @@ int pegar_mesas(int tam_grupo) {
     if (quant_mesas <= _mesas_vagas_n) { //Podem brigar por uma mesa
         printf("==Pegar Mesas %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
         _mesas_vagas_n -= quant_mesas;
+        pthread_mutex_unlock(&mtx_mesas);
     } else {
         printf("==Recepcao %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
+        pthread_mutex_unlock(&mtx_mesas);
+
         int* val = malloc(sizeof(int) * quant_mesas);
         *(val) = quant_mesas;        
+
+        pthread_mutex_lock(&mtx_recepcao);
         queue_push_back(&recepcao, val);
-        pthread_mutex_unlock(&mtx_mesas);
-        return -1;
+        pthread_mutex_unlock(&mtx_recepcao);
+
+        while(!atendimento_recepcao(quant_mesas));
+        printf("FINALMENTE FUI ATENDIDO\n");
     }
-    pthread_mutex_unlock(&mtx_mesas);
     return 0;
 }
 
@@ -236,38 +245,7 @@ void garcom_tchau(int tam_grupo) {
     pthread_mutex_lock(&mtx_mesas);
     _mesas_vagas_n += quant_mesas;
     printf("==Tchau %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
-    if (!queue_empty(&recepcao)) {
-        int i = queue_size(&recepcao);
-        printf("Vendo Recepcao %d\n", i);
-        int quant_mesas_fila;
-        while (i > 0) {
-            printf("Procurando grupo %d\n", queue_size(&recepcao));
-            void* aux = queue_wait(&recepcao);
-            quant_mesas_fila = *((int*) aux);
-            free(aux);
-            if (quant_mesas_fila <= _mesas_vagas_n) {
-                printf("Achou Grupo %d\n", queue_size(&recepcao));
-                _mesas_vagas_n -=quant_mesas_fila;
-                break;
-            }
-            int* val = malloc(sizeof(int) * quant_mesas_fila);
-            *(val) = quant_mesas_fila;        
-            queue_push_back(&recepcao, (void*)val); 
-            i--;
-        } 
-        //Voltando Fila ao normal
-        while(i > 1){
-            printf("Voltando fila ao normal\n");
-            void* aux = queue_wait(&recepcao);
-            quant_mesas_fila = *((int*)aux);
-            free(aux);
-            int* val = malloc(sizeof(int) * quant_mesas_fila);
-            *(val) = quant_mesas_fila;        
-            queue_push_back(&recepcao, (void*)val); 
-            i--;
-        }
-    }
-    printf("Indo realmente embora\n");
+    //printf("Indo realmente embora\n");
     printf("==Mesas Vagas = %d\n",_mesas_vagas_n);
     pthread_mutex_unlock(&mtx_mesas);
 }
@@ -291,3 +269,50 @@ int sem_ret_getValue(sem_t* sem_ptr) {
     sem_getvalue(sem_ptr,&k);
     return k;
 }
+
+int atendimento_recepcao(int quant_mesas){
+    //printf("Vendo Recepcao %d\n", i);
+    int quant_mesas_fila;
+    pthread_mutex_lock(&mtx_recepcao);
+    int found = 0;
+    int i = queue_size(&recepcao);
+    while (i > 0) {
+        //printf("Procurando grupo %d\n", queue_size(&recepcao));
+        void* aux = queue_wait(&recepcao);
+        quant_mesas_fila = *((int*) aux);
+        free(aux);
+        pthread_mutex_lock(&mtx_mesas);
+        if (quant_mesas_fila <= _mesas_vagas_n) {
+            printf("Achou Grupo %d\n", i - 1);
+            found = 1;
+            _mesas_vagas_n -=quant_mesas_fila;
+            pthread_mutex_unlock(&mtx_mesas);
+            printf("Quant Gente Recepcao %d\n",queue_size(&recepcao));
+            break;
+        }
+        pthread_mutex_unlock(&mtx_mesas);
+        int* val = malloc(sizeof(int) * quant_mesas_fila);
+        *(val) = quant_mesas_fila;        
+        queue_push_back(&recepcao, (void*)val); 
+        i--;
+    } 
+    //Voltando Fila ao normal
+    while(i > 1){
+        //printf("Voltando fila ao normal\n");
+        void* aux = queue_wait(&recepcao);
+        quant_mesas_fila = *((int*)aux);
+        free(aux);
+        int* val = malloc(sizeof(int) * quant_mesas_fila);
+        *(val) = quant_mesas_fila;        
+        queue_push_back(&recepcao, (void*)val); 
+        i--;
+     }
+    if(found){
+        pthread_mutex_unlock(&mtx_recepcao);
+        return 1;
+    }else{
+        pthread_mutex_unlock(&mtx_recepcao);
+        return 0;
+    }
+}
+
