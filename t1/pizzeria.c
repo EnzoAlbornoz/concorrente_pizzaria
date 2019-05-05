@@ -12,7 +12,7 @@ void* garcom_func(void* args);
 void pizzaiolo_colocar_mesa(pizza_t* pizza);
 void* pizzaiolo_func(void* args);
 int sem_ret_getValue(sem_t* sem_ptr);
-int atendimento_recepcao(int tam_grupo);
+int espera_recepcao(int quant_mesas);
 // Infos
     // Pizzaria
 int pizzaria_is_open;
@@ -209,15 +209,19 @@ void pizzeria_destroy() {
 }
 
 int pegar_mesas(int tam_grupo) {
+    // Se pizzaria esta fechada, o grupo não pode entrar
     if (!pizzaria_is_open) {
         return -1;
     }
 
+    // Calcula a quantidade de mesas para o grupo
     int quant_mesas = tam_grupo / 4;
     quant_mesas += (tam_grupo % 4) ? 1 : 0;
    
     pthread_mutex_lock(&mtx_mesas);
-    if (quant_mesas <= _mesas_vagas_n) { //Podem brigar por uma mesa
+    // O grupo verifica se há uma quantidade de mesas vagas necessarias
+    if (quant_mesas <= _mesas_vagas_n) {
+        //Pegam as mesas necessarias
         printf("==Pegar Mesas %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
         _mesas_vagas_n -= quant_mesas;
         pthread_mutex_unlock(&mtx_mesas);
@@ -229,20 +233,24 @@ int pegar_mesas(int tam_grupo) {
         *(val) = quant_mesas;        
 
         pthread_mutex_lock(&mtx_recepcao);
+        //Entram na fila da recepcao
         queue_push_back(&recepcao, val);
         pthread_mutex_unlock(&mtx_recepcao);
 
-        while(!atendimento_recepcao(quant_mesas));
+        // Ficam esperando para serem atendidos
+        while(!espera_recepcao(quant_mesas));
         printf("FINALMENTE FUI ATENDIDO\n");
     }
     return 0;
 }
 
 void garcom_tchau(int tam_grupo) {
+    // Calculam quantas mesas serao liberadas
     int quant_mesas = tam_grupo / 4;
     quant_mesas += (tam_grupo % 4) ? 1 : 0;
 
     pthread_mutex_lock(&mtx_mesas);
+    //Vagam as mesas dizendo para as pessoas da recepcao que ha mesas disponiveis
     _mesas_vagas_n += quant_mesas;
     printf("==Tchau %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
     //printf("Indo realmente embora\n");
@@ -270,13 +278,19 @@ int sem_ret_getValue(sem_t* sem_ptr) {
     return k;
 }
 
-int atendimento_recepcao(int quant_mesas){
-    //printf("Vendo Recepcao %d\n", i);
-    int quant_mesas_fila;
+int espera_recepcao(int quant_mesas){
+    // Verificam se há mesas Vagas
+    pthread_mutex_lock(&mtx_mesas);
+    if(_mesas_vagas_n <= 0){
+        return 0;
+    }
+    pthread_mutex_unlock(&mtx_mesas);
+
     pthread_mutex_lock(&mtx_recepcao);
-    int found = 0;
-    int i = queue_size(&recepcao);
+    int found = 0; //Flag para ver se encontrou grupo que encaixa na mesa
+    int i = queue_size(&recepcao); //Inicia variavel para percorrer a fila de espera
     while (i > 0) {
+        int quant_mesas_fila;
         //printf("Procurando grupo %d\n", queue_size(&recepcao));
         void* aux = queue_wait(&recepcao);
         quant_mesas_fila = *((int*) aux);
@@ -284,8 +298,10 @@ int atendimento_recepcao(int quant_mesas){
         pthread_mutex_lock(&mtx_mesas);
         if (quant_mesas_fila <= _mesas_vagas_n) {
             printf("Achou Grupo %d\n", i - 1);
-            found = 1;
-            _mesas_vagas_n -=quant_mesas_fila;
+            if(quant_mesas_fila == quant_mesas){
+                found = 1; //Seta flag dizendo ao grupo que encontrou mesa para eles
+            }
+            _mesas_vagas_n -= quant_mesas_fila;
             pthread_mutex_unlock(&mtx_mesas);
             printf("Quant Gente Recepcao %d\n",queue_size(&recepcao));
             break;
@@ -298,6 +314,7 @@ int atendimento_recepcao(int quant_mesas){
     } 
     //Voltando Fila ao normal
     while(i > 1){
+        int quant_mesas_fila;
         //printf("Voltando fila ao normal\n");
         void* aux = queue_wait(&recepcao);
         quant_mesas_fila = *((int*)aux);
