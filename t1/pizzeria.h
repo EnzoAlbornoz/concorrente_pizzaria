@@ -6,6 +6,12 @@
 
 typedef struct cliente_s cliente_t;
 
+typedef struct ticket_s {
+    int g_mesas;
+    int refused;
+    sem_t alert;
+} ticket_t;
+
 typedef struct pedido_s {
     cliente_t* cliente; ///< IMPORTANTE! NÃO REMOVER
     int id;             ///< IMPORTANTE! NÃO REMOVER
