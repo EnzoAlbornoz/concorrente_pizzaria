@@ -123,7 +123,7 @@ void* pizzaiolo_func(void* args) {
         //pthread_setname_np(garcom, "garcom"); //Robson
         pthread_detach(garcom);
         // Ele pega uma semente dos deuses e a consome,recuperando suas energias e esperando o próximo pedido
-    } while(pizzaria_is_open || sem_ret_getValue(&sem_smart_deck) /*|| !sem_ret_getValue(&sem_pizzaria_done)*/ );
+    } while(pizzaria_is_open || sem_ret_getValue(&sem_smart_deck) || !sem_ret_getValue(&sem_pizzaria_done) );
     printf("[PIZZAIOLO] TERMINEI TD!\n");
     return NULL; //Robson Alteraçã
 }
@@ -320,8 +320,8 @@ void garcom_tchau(int tam_grupo) {
     pthread_mutex_lock(&mtx_mesas);
     _mesas_vagas_n += g_mesas;
     // Avisa a recepcao se ele n estiver verificando ninguém
-    int l = sem_ret_getValue(&sem_mesa_livre);
-    if (!l) { sem_post(&sem_mesa_livre); }
+    // int l = sem_ret_getValue(&sem_mesa_livre);
+    // if (!l) { sem_post(&sem_mesa_livre); }
     // Verifica se é o ultimo cliente
     printf("[CLIENTES] [TCHAU] VAGARAM %d MESAS!!\n",g_mesas);
     printf("[CLIENTES] [TCHAU] SOBRARAM %d MESAS OCUPADOS !! \n",(_total_mesas_n - _mesas_vagas_n));
