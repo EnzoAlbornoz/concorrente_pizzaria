@@ -18,20 +18,6 @@ int espera_recepcao(int quant_mesas);
 int pizzaria_is_open;
     // Garçons
 sem_t garcons_disponiveis;
-    // Pizzaiolos
-//int _pizzaiolos_n;
-//pthread_t* pizzaiolos;
-// Integracao
-    // Smart Deck
-//queue_t smart_deck;
-//sem_t sem_smart_deck;
-    // Forno 
-//sem_t sem_espacos_forno;
-    // Pa de pizza
-//pthread_mutex_t mtx_pa_pizza;
-    // Espaco na mesa
-//pizza_t* espaco_mesa;
-//sem_t sem_espaco_mesa; // Semaforo de 1 - > Tipo mutex
     // Mesas
 int _total_mesas_n;
 int _mesas_vagas_n;
