@@ -119,7 +119,9 @@ int pegar_mesas(int tam_grupo) {
             sem_wait(&sem_recepcao);
             //Se pizzaria esta fechada eles vao embora
             if (!pizzaria_is_open) {
+                pthread_mutex_lock(&mtx_mesas);
                 _grupos_recepcao--;
+                pthread_mutex_unlock(&mtx_mesas);
                 return -1;
             }
             //Tentam pegar a quantidade de mesas necessarias
@@ -128,7 +130,7 @@ int pegar_mesas(int tam_grupo) {
                 _mesas_vagas_n -= quant_mesas;
                 _grupos_recepcao--;
                 pthread_mutex_unlock(&mtx_mesas);
-                return 0;
+                break;
             }
             pthread_mutex_unlock(&mtx_mesas);
         }
@@ -145,21 +147,26 @@ void garcom_tchau(int tam_grupo) {
     pthread_mutex_lock(&mtx_mesas);
     //Vagam as mesas dizendo
     _mesas_vagas_n += quant_mesas;
+    int aux = _grupos_recepcao;
+    pthread_mutex_unlock(&mtx_mesas);
 
     //Diz as pessoas da recepção que ha mesas vagas
-    for (int i=0; i<_grupos_recepcao; i++) {
+    for (int i=0; i<aux; i++) {
         sem_post(&sem_recepcao);
     }
     
     //pthread_mutex_lock(&mtx_recepcao);
-    if(_mesas_vagas_n == _total_mesas_n && !pizzaria_is_open && !_grupos_recepcao){
-        sem_post(&sem_pizzeria_done);
+    if(!pizzaria_is_open){
+        pthread_mutex_lock(&mtx_mesas);
+        if(_mesas_vagas_n == _total_mesas_n && !_grupos_recepcao){
+            sem_post(&sem_pizzeria_done);
+        }
+        pthread_mutex_unlock(&mtx_mesas);
     }
     //pthread_mutex_unlock(&mtx_recepcao);
     //printf("==Tchau %d %d %d\n",_mesas_vagas_n, quant_mesas, tam_grupo);
     //printf("Indo realmente embora\n");
     //printf("==Mesas Vagas = %d\n",_mesas_vagas_n);
-    pthread_mutex_unlock(&mtx_mesas);
 
     //Recepcao
 }
