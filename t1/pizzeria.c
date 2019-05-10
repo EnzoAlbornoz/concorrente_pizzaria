@@ -72,6 +72,15 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
 void pizzeria_close() {
     // Fecha as portas da pizzaria com portas de ferro e toras
     pizzaria_is_open = 0;
+    int aux;
+    pthread_mutex_lock(&mtx_mesas);
+    aux = _grupos_recepcao;
+    pthread_mutex_unlock(&mtx_mesas);
+
+    //Diz as pessoas da recepção que ha mesas vagas
+    for (int i=0; i<aux; i++) {
+        sem_post(&sem_recepcao);
+    }
 }
 
 void pizzeria_destroy() {
@@ -101,8 +110,10 @@ int pegar_mesas(int tam_grupo) {
     // Calcula a quantidade de mesas para o grupo
     int quant_mesas = tam_grupo / 4;
     quant_mesas += (tam_grupo % 4) ? 1 : 0;
+    //int quant_mesas = ceil(((double)tam_grupo) / 4);
+    //printf("%d   %d\n",quant_mesas1, quant_mesas);
    
-    // O grupo verifica se há uma quantidade de mesas vagas necessarias
+    //O grupo verifica se há uma quantidade de mesas vagas necessarias
     pthread_mutex_lock(&mtx_mesas);
     if (quant_mesas <= _mesas_vagas_n) {
         //Pegam as mesas necessarias
@@ -130,7 +141,8 @@ int pegar_mesas(int tam_grupo) {
                 _mesas_vagas_n -= quant_mesas;
                 _grupos_recepcao--;
                 pthread_mutex_unlock(&mtx_mesas);
-                break;
+                //break; //Deu diferenca na velocidade quanto a return
+                return 0;
             }
             pthread_mutex_unlock(&mtx_mesas);
         }
@@ -142,12 +154,14 @@ void garcom_tchau(int tam_grupo) {
     // Calculam quantas mesas serao liberadas
     int quant_mesas = tam_grupo / 4;
     quant_mesas += (tam_grupo % 4) ? 1 : 0;
+    //int quant_mesas = ceil(((double)tam_grupo) / 4);
 
     //printf("Esperando Mutex Mesas\n\n");
+    int aux;
     pthread_mutex_lock(&mtx_mesas);
     //Vagam as mesas dizendo
     _mesas_vagas_n += quant_mesas;
-    int aux = _grupos_recepcao;
+    aux = _grupos_recepcao;
     pthread_mutex_unlock(&mtx_mesas);
 
     //Diz as pessoas da recepção que ha mesas vagas
@@ -159,6 +173,7 @@ void garcom_tchau(int tam_grupo) {
     if(!pizzaria_is_open){
         pthread_mutex_lock(&mtx_mesas);
         if(_mesas_vagas_n == _total_mesas_n && !_grupos_recepcao){
+            printf("Pizzeria Done!");
             sem_post(&sem_pizzeria_done);
         }
         pthread_mutex_unlock(&mtx_mesas);
