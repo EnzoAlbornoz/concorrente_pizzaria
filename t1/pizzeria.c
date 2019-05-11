@@ -8,10 +8,6 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
-// Declaracao de funcoes implementadas que não aparecem no 
-void* garcom_entregar_func(void* args);
-void* pizzaiolo_func(void* args);
-
 // Pizzaria
 int _pizzaria_aberta;
 int _pizzaria_encerrada;
@@ -114,7 +110,6 @@ void pizzeria_close() {
 void pizzeria_destroy() {
 
     //Verifica se ha pessoas na pizzaria
-    //printf("FECHANDOOOOOOOOOPIZZARIA================\n");
     while (1) {
         pthread_mutex_lock(&mtx_mesas);
         if (_mesas_vagas_n == _total_mesas_n) {
@@ -165,69 +160,6 @@ void pizzeria_destroy() {
 
     //Recepção
     sem_destroy(&sem_recepcao);
-}
-
-    // Garcons
-void garcom_chamar() {
-    sem_wait(&sem_garcons_disponiveis);
-}
-
-void fazer_pedido(pedido_t* pedido) {
-    queue_push_back(&queue_smart_deck,(void*)pedido);
-}
-
-void* garcom_entregar_func(void* args) {
-    // Pega a pizza do balcao para entregar
-    while (1) {
-        sem_wait(&sem_entregar_pizza);
-        // Verifica se seu dia de trabalho acabou
-        if (_pizzaria_encerrada) {
-            break;
-        }
-        garcom_chamar();
-        pizza_t* pizza_pronta = _pizza_balcao;
-        // Libera espaco no balcao
-        sem_post(&sem_balcao);
-        // Entrega a Pizza
-        garcom_entregar(pizza_pronta);
-        sem_post(&sem_garcons_disponiveis);
-    }
-    return NULL;
-}
-
-void* pizzaiolo_func(void* args) {
-    while (1) {
-        // Espera por pedidos
-        pedido_t* pedido = (pedido_t*) queue_wait(&queue_smart_deck);
-        //Se for anuncio de fim de trabalho
-        if (pedido == NULL) {
-            break;
-        }
-
-        // Pegou um pedido válido
-        pizza_t* pizza = pizzaiolo_montar_pizza(pedido);
-        sem_init(&(pizza->pizza_pronta),0,0);
-        // Pega a pá e leva no forno
-        sem_wait(&sem_forno);
-        pthread_mutex_lock(&mtx_pa_pizza);
-        pizzaiolo_colocar_forno(pizza);
-        pthread_mutex_unlock(&mtx_pa_pizza);
-        // Espera a pizza
-        sem_wait(&pizza->pizza_pronta);
-        // Tira do forno e coloca no balcao
-        pthread_mutex_lock(&mtx_pa_pizza);
-        pizzaiolo_retirar_forno(pizza);
-        sem_post(&sem_forno); // Libera o Forno
-        sem_wait(&sem_balcao); //Espera vagar lugar no balcao
-        _pizza_balcao = pizza; // Coloca no Balcao
-        pthread_mutex_unlock(&mtx_pa_pizza); // Libera a Pa
-
-        pthread_mutex_init(&pizza->mtx_pegador_pizza,NULL); // Coloca o Pegador na pizza
-        sem_destroy(&(pizza->pizza_pronta)); // Pizza ja esta Pronta
-        sem_post(&sem_entregar_pizza); // Diz ao garcon para entregar a pizza
-        // Reinicia o processo
-    }
-    return NULL;
 }
 
 void pizza_assada(pizza_t* pizza) {
@@ -301,6 +233,14 @@ void garcom_tchau(int tam_grupo) {
     }
 }
 
+void garcom_chamar() {
+    sem_wait(&sem_garcons_disponiveis);
+}
+
+void fazer_pedido(pedido_t* pedido) {
+    queue_push_back(&queue_smart_deck,(void*)pedido);
+}
+
 int pizza_pegar_fatia(pizza_t* pizza) {
     // Tenta pegar a fatia
     pthread_mutex_lock(&pizza->mtx_pegador_pizza);
@@ -312,4 +252,58 @@ int pizza_pegar_fatia(pizza_t* pizza) {
     // Nao conseguiu pegar pedaço
     pthread_mutex_unlock(&pizza->mtx_pegador_pizza);
     return -1;
+}
+
+void* garcom_entregar_func(void* args) {
+    // Pega a pizza do balcao para entregar
+    while (1) {
+        sem_wait(&sem_entregar_pizza);
+        // Verifica se seu dia de trabalho acabou
+        if (_pizzaria_encerrada) {
+            break;
+        }
+        garcom_chamar();
+        pizza_t* pizza_pronta = _pizza_balcao;
+        // Libera espaco no balcao
+        sem_post(&sem_balcao);
+        // Entrega a Pizza
+        garcom_entregar(pizza_pronta);
+        sem_post(&sem_garcons_disponiveis);
+    }
+    return NULL;
+}
+
+void* pizzaiolo_func(void* args) {
+    while (1) {
+        // Espera por pedidos
+        pedido_t* pedido = (pedido_t*) queue_wait(&queue_smart_deck);
+        //Se for anuncio de fim de trabalho
+        if (pedido == NULL) {
+            break;
+        }
+
+        // Pegou um pedido válido
+        pizza_t* pizza = pizzaiolo_montar_pizza(pedido);
+        sem_init(&(pizza->pizza_pronta),0,0);
+        // Pega a pá e leva no forno
+        sem_wait(&sem_forno);
+        pthread_mutex_lock(&mtx_pa_pizza);
+        pizzaiolo_colocar_forno(pizza);
+        pthread_mutex_unlock(&mtx_pa_pizza);
+        // Espera a pizza
+        sem_wait(&pizza->pizza_pronta);
+        // Tira do forno e coloca no balcao
+        pthread_mutex_lock(&mtx_pa_pizza);
+        pizzaiolo_retirar_forno(pizza);
+        sem_post(&sem_forno); // Libera o Forno
+        sem_wait(&sem_balcao); //Espera vagar lugar no balcao
+        _pizza_balcao = pizza; // Coloca no Balcao
+        pthread_mutex_unlock(&mtx_pa_pizza); // Libera a Pa
+
+        pthread_mutex_init(&pizza->mtx_pegador_pizza,NULL); // Coloca o Pegador na pizza
+        sem_destroy(&(pizza->pizza_pronta)); // Pizza ja esta Pronta
+        sem_post(&sem_entregar_pizza); // Diz ao garcon para entregar a pizza
+        // Reinicia o processo
+    }
+    return NULL;
 }

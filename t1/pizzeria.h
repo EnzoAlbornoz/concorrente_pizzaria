@@ -42,4 +42,8 @@ void fazer_pedido(pedido_t* pedido);
 
 int pizza_pegar_fatia(pizza_t* pizza);
 
+//Funcoes extras
+void* garcom_entregar_func(void* args);
+void* pizzaiolo_func(void* args);
+
 #endif /*__PIZZERIA_H_*/
