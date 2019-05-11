@@ -64,15 +64,8 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
     _garcons_n = n_garcons;
     sem_init(&sem_garcons_disponiveis,0,_garcons_n);
 
-    // Pizzaiolos
-    _pizzaiolos_n = n_pizzaiolos;
-    pizzaiolos = malloc(sizeof(pthread_t) * _pizzaiolos_n);
-    for(int i = 0;i < _pizzaiolos_n; i++) {
-        pthread_create(&pizzaiolos[i],NULL,pizzaiolo_func,NULL);
-    }
-
     // Smart Deck
-    queue_init(&queue_smart_deck, tam_deck);
+    queue_init(&queue_smart_deck, tam_deck);    
 
     // Cozinha
     _pizza_balcao = NULL;
@@ -90,6 +83,13 @@ void pizzeria_init(int tam_forno, int n_pizzaiolos, int n_mesas,
     _grupos_recepcao_n = 0;
     sem_init(&sem_recepcao,0,0);
     //pthread_mutex_init(&mtx_pizza_entregar,NULL);
+
+    // Pizzaiolos
+    _pizzaiolos_n = n_pizzaiolos;
+    pizzaiolos = malloc(sizeof(pthread_t) * _pizzaiolos_n);
+    for(int i = 0;i < _pizzaiolos_n; i++) {
+        pthread_create(&pizzaiolos[i],NULL,pizzaiolo_func,NULL);
+    }
 }
 
 void pizzeria_close() {
