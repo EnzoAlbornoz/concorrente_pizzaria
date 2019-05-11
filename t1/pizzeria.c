@@ -200,21 +200,32 @@ void pizzeria_close() {
 void pizzeria_destroy() {
 
     //Verifica se ha pessoas na pizzaria
-    //printf("FECHANDOOOOOOOOOPIZZARIA================\n");
-    sem_wait(&sem_pizzeria_done);
-    //printf("NAO HA MAIS NINGUEM NA PIZZARIA===\n");
+    printf("FECHANDOOOOOOOOOPIZZARIA================\n");
+    while(1){
+        pthread_mutex_lock(&mtx_mesas);
+        if(_mesas_vagas_n == _total_mesas_n && !_grupos_recepcao){
+            //sem_post(&sem_pizzeria_done);
+            printf("Saidno While\n");
+
+            break;
+        }
+        pthread_mutex_unlock(&mtx_mesas);
+    }
+    //sem_wait(&sem_pizzeria_done);
+    printf("NAO HA MAIS NINGUEM NA PIZZARIA===\n");
 
     // Destroi a pizzaria com uma arma termo-nuclear
     //-------------------------COZINHA-E-GAROCONS(REL_COZINHA)-----------------------------
+    pizzaria_is_done = 1;
         // Smart Deck
-    queue_destroy(&smart_deck);
-    sem_destroy(&sem_smart_deck);
         // Garcons
-    sem_destroy(&garcons_disponiveis);
-    sem_init(&sem_entregar_pizza, 0, 0);
-    for (int i = 0; i < _garcons_n; ++i) {
+    for (int i = 0; i < _garcons_n; i++) {
+        sem_post(&sem_entregar_pizza);
         pthread_join(garcons[i],NULL);
     }
+    sem_destroy(&garcons_disponiveis);
+    sem_init(&sem_entregar_pizza, 0, 0);
+    printf("Garcom ok\n");
         // Cozinha
             // Forno
     sem_destroy(&sem_espacos_forno);
@@ -224,12 +235,15 @@ void pizzeria_destroy() {
     sem_destroy(&sem_espaco_mesa);
             // Pizziolos
     printf("%d\n",_pizzaiolos_n);
-    for (int i = 0; i < _pizzaiolos_n; ++i) {
+    for (int i = 0; i < _pizzaiolos_n; i++) {
         //printf("[PIZZAIOLO] ESPERANDO PIZZAIOLO %d\n",i);
+        sem_post(&sem_smart_deck);
         pthread_join(pizzaiolos[i],NULL);
         //printf("[PIZZAIOLO %d] Retornou \n",i);
     }
     free(pizzaiolos);
+    queue_destroy(&smart_deck);
+    sem_destroy(&sem_smart_deck);
         // Mesas
     pthread_mutex_destroy(&mtx_mesas);
         //Recepção
@@ -267,9 +281,10 @@ int pegar_mesas(int tam_grupo) {
             sem_wait(&sem_recepcao);
             //Se pizzaria esta fechada eles vao embora
             if (!pizzaria_is_open) {
-                //pthread_mutex_lock(&mtx_mesas);
-                //_grupos_recepcao--;
-                //pthread_mutex_unlock(&mtx_mesas);
+                pthread_mutex_lock(&mtx_mesas);
+                _grupos_recepcao--;
+                //printf("Grupos %d\n",_grupos_recepcao);
+                pthread_mutex_unlock(&mtx_mesas);
                 return -1;
             }
             //Tentam pegar a quantidade de mesas necessarias
@@ -306,24 +321,9 @@ void garcom_tchau(int tam_grupo) {
     }
     
     //Se pizzaria nao esta aberta
-    if(!pizzaria_is_open){
+    //if(!pizzaria_is_open){
         //Se todos ja foram embora
-        pthread_mutex_lock(&mtx_mesas);
-        if(_mesas_vagas_n == _total_mesas_n){
-            //printf("Pizzeria Done!\n==========================\n\n");
-            sem_post(&sem_pizzeria_done);
-    
-            pizzaria_is_done = 1;
-            for(int i =0; i<_pizzaiolos_n; i++){
-                sem_post(&sem_smart_deck);
-            }
-            for(int i =0; i<_garcons_n; i++){
-                sem_post(&sem_entregar_pizza);
-            }
-            
-        }
-        pthread_mutex_unlock(&mtx_mesas);
-    }
+    //}
     //Libera garcon para nova atividade
     sem_post(&garcons_disponiveis);
 }
